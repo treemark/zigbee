@@ -1,0 +1,33 @@
+package com.appliedvillainy.zigbee;
+
+import org.bubblecloud.zigbee.v3.ZigBeeGatewayClient;
+import org.bubblecloud.zigbee.v3.ZigBeeDevice;
+
+import java.util.List;
+
+public class ListZigBeeDevices {
+    public static void main(String[] args) throws Exception {
+        // Replace with your gateway address and secret
+        String gatewayUrl = "http://127.0.0.1:5000/";
+        String secret = "secret";
+
+        ZigBeeGatewayClient api = new ZigBeeGatewayClient(gatewayUrl, secret);
+
+        // Start the API connection
+        api.startup();
+
+        // Retrieve list of all known ZigBee devices
+        List<ZigBeeDevice> devices = api.getZigBeeDevices();
+
+        // Print basic information about each device
+        for (ZigBeeDevice device : devices) {
+            System.out.println("Label: " + device.getLabel());
+            System.out.println("Address: " + device.getNetworkAddress());
+            System.out.println("IEEE: " + device.getIeeeAddress());
+            System.out.println("--------------");
+        }
+
+        // Clean up
+        api.shutdown();
+    }
+}

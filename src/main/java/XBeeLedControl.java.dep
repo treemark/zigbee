@@ -1,0 +1,45 @@
+import com.digi.xbee.api.XBeeDevice;
+import com.digi.xbee.api.listeners.IDataReceiveListener;
+import com.digi.xbee.api.models.XBee64BitAddress;
+import com.digi.xbee.api.packet.XBeePacket;
+import com.digi.xbee.api.exceptions.XBeeException;
+
+public class XBeeLedControl {
+
+    public static void main(String[] args) throws XBeeException {
+        // Adjust to your port and baud rate
+        final String PORT = "COM3";
+        final int BAUD_RATE = 9600;
+
+        // Address of the device to control
+        final XBee64BitAddress ledDeviceAddress = new XBee64BitAddress("0013A20040XXXXXX");
+
+        XBeeDevice xbee = new XBeeDevice(PORT, BAUD_RATE);
+
+        try {
+            xbee.open();
+
+            // To turn ON the LED
+            byte[] onPayload = new byte[]{1}; // 1 = ON command
+            xbee.sendData(ledDeviceAddress, onPayload);
+
+            // To turn OFF the LED
+            // byte[] offPayload = new byte[]{0};
+            // xbee.sendData(ledDeviceAddress, offPayload);
+
+            // To detect input (optional, to subscribe to data coming from another XBee)
+            xbee.addDataListener((remoteXBeeDevice, xbeeMessage) -> {
+                byte[] data = xbeeMessage.getData();
+                System.out.println("Received: " + data);
+            });
+
+            // Keep application alive as long as needed
+            Thread.sleep(10000);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            xbee.close();
+        }
+    }
+}
