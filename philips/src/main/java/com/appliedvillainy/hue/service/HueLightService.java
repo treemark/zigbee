@@ -1,0 +1,173 @@
+package com.appliedvillainy.hue.service;
+
+import com.appliedvillainy.hue.model.LightCommand;
+import com.appliedvillainy.hue.model.LightDto;
+import io.github.zeroone3010.yahueapi.v2.Hue;
+import io.github.zeroone3010.yahueapi.v2.Light;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Service for managing Hue lights/Zigbee bulbs via the Philips Hue Bridge.
+ */
+@Service
+public class HueLightService {
+
+    private static final Logger logger = LoggerFactory.getLogger(HueLightService.class);
+    
+    private final Hue hue;
+
+    public HueLightService(Hue hue) {
+        this.hue = hue;
+    }
+
+    /**
+     * Get all lights connected to the Hue Bridge.
+     */
+    public List<LightDto> getAllLights() {
+        logger.info("Fetching all lights from Hue Bridge");
+        Map<UUID, Light> lights = hue.getLights();
+        
+        return lights.entrySet().stream()
+                .map(entry -> mapToDto(entry.getKey(), entry.getValue()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get a specific light by its ID.
+     */
+    public Optional<LightDto> getLightById(UUID id) {
+        logger.info("Fetching light with ID: {}", id);
+        Map<UUID, Light> lights = hue.getLights();
+        Light light = lights.get(id);
+        
+        if (light == null) {
+            return Optional.empty();
+        }
+        return Optional.of(mapToDto(id, light));
+    }
+
+    /**
+     * Get a light by its name.
+     */
+    public Optional<LightDto> getLightByName(String name) {
+        logger.info("Fetching light with name: {}", name);
+        Map<UUID, Light> lights = hue.getLights();
+        
+        return lights.entrySet().stream()
+                .filter(entry -> entry.getValue().getName().equalsIgnoreCase(name))
+                .map(entry -> mapToDto(entry.getKey(), entry.getValue()))
+                .findFirst();
+    }
+
+    /**
+     * Turn on a light.
+     */
+    public boolean turnOn(UUID id) {
+        logger.info("Turning on light: {}", id);
+        Light light = hue.getLights().get(id);
+        if (light != null) {
+            light.turnOn();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Turn off a light.
+     */
+    public boolean turnOff(UUID id) {
+        logger.info("Turning off light: {}", id);
+        Light light = hue.getLights().get(id);
+        if (light != null) {
+            light.turnOff();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Apply a command to a specific light.
+     */
+    public boolean applyCommand(UUID id, LightCommand command) {
+        logger.info("Applying command to light: {} - {}", id, command);
+        Light light = hue.getLights().get(id);
+        
+        if (light == null) {
+            logger.warn("Light not found: {}", id);
+            return false;
+        }
+
+        try {
+            // Handle on/off state
+            if (command.getOn() != null) {
+                if (command.getOn()) {
+                    light.turnOn();
+                } else {
+                    light.turnOff();
+                }
+            }
+
+            // Handle brightness
+            if (command.getBrightness() != null) {
+                light.setBrightness(command.getBrightness().intValue());
+            }
+
+            // Note: Additional color and transition controls would need
+            // to be implemented based on the specific yahueapi capabilities
+
+            return true;
+        } catch (Exception e) {
+            logger.error("Failed to apply command to light {}: {}", id, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Turn on all lights.
+     */
+    public void turnOnAllLights() {
+        logger.info("Turning on all lights");
+        hue.getLights().values().forEach(Light::turnOn);
+    }
+
+    /**
+     * Turn off all lights.
+     */
+    public void turnOffAllLights() {
+        logger.info("Turning off all lights");
+        hue.getLights().values().forEach(Light::turnOff);
+    }
+
+    /**
+     * Set brightness for all lights.
+     */
+    public void setBrightnessForAll(int brightness) {
+        logger.info("Setting brightness {} for all lights", brightness);
+        hue.getLights().values().forEach(light -> light.setBrightness(brightness));
+    }
+
+    /**
+     * Map a Light object to a LightDto.
+     */
+    private LightDto mapToDto(UUID id, Light light) {
+        LightDto dto = new LightDto();
+        dto.setId(id);
+        dto.setName(light.getName());
+        dto.setOn(light.isOn());
+        
+        // Get additional properties if available
+        try {
+            // Note: Some properties may not be available depending on bulb type
+            // and yahueapi version
+        } catch (Exception e) {
+            logger.debug("Could not fetch all properties for light {}: {}", id, e.getMessage());
+        }
+        
+        return dto;
+    }
+}

@@ -1,0 +1,40 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: hue-bridge-controller
+
+# Philips Hue Bridge Configuration
+# - Set ip to 'auto' for autodiscovery, or specify a manual IP address
+# - Autodiscovery will query https://discovery.meethue.com to find the bridge
+hue:
+  bridge:
+    ip: auto  # Use 'auto' for autodiscovery or specify IP like '192.168.86.30'
+    api-key: xMPVYUdfWO7knNcobBxqmfAKNVPwoSCa7ARhUCJ8
+
+# Actuator endpoints for monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Swagger/OpenAPI configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+# Logging configuration
+logging:
+  level:
+    com.appliedvillainy.hue: DEBUG
+    io.github.zeroone3010: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
