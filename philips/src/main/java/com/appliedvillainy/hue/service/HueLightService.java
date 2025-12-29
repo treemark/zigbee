@@ -2,8 +2,10 @@ package com.appliedvillainy.hue.service;
 
 import com.appliedvillainy.hue.model.LightCommand;
 import com.appliedvillainy.hue.model.LightDto;
+import io.github.zeroone3010.yahueapi.Color;
 import io.github.zeroone3010.yahueapi.v2.Hue;
 import io.github.zeroone3010.yahueapi.v2.Light;
+import io.github.zeroone3010.yahueapi.v2.UpdateState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -103,22 +105,49 @@ public class HueLightService {
         }
 
         try {
+            // Build an UpdateState object with all the requested changes
+            UpdateState state = new UpdateState();
+            
             // Handle on/off state
             if (command.getOn() != null) {
                 if (command.getOn()) {
-                    light.turnOn();
+                    state.on();
                 } else {
-                    light.turnOff();
+                    state.off();
                 }
             }
 
             // Handle brightness
             if (command.getBrightness() != null) {
-                light.setBrightness(command.getBrightness().intValue());
+                state.brightness(command.getBrightness().intValue());
             }
 
-            // Note: Additional color and transition controls would need
-            // to be implemented based on the specific yahueapi capabilities
+            // Handle hue and saturation together
+            if (command.getHue() != null && command.getSaturation() != null) {
+                // Convert hue (0-65535) and saturation (0-254) to RGB color
+                // Hue API uses hue/saturation, so we need to create a Color from it
+                float hueNormalized = command.getHue() / 65535.0f; // 0-1
+                float satNormalized = command.getSaturation() / 254.0f; // 0-1
+                float brightness = 1.0f; // Full brightness for color calculation
+                
+                // Convert HSB to RGB
+                int rgb = java.awt.Color.HSBtoRGB(hueNormalized, satNormalized, brightness);
+                state.color(Color.of(rgb));
+            } else if (command.getHue() != null) {
+                // Just hue, assume full saturation
+                float hueNormalized = command.getHue() / 65535.0f;
+                int rgb = java.awt.Color.HSBtoRGB(hueNormalized, 1.0f, 1.0f);
+                state.color(Color.of(rgb));
+            } else if (command.getSaturation() != null) {
+                // Just saturation - not very useful alone, skip
+                logger.debug("Saturation without hue - skipping color change");
+            }
+
+            // Note: Color temperature would need different handling in yahueapi
+            // For now, we skip it as it's not used in our color rotation test
+
+            // Apply the state to the light
+            light.setState(state);
 
             return true;
         } catch (Exception e) {

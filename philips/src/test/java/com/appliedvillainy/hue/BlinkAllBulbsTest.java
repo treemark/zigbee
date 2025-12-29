@@ -1,5 +1,6 @@
 package com.appliedvillainy.hue;
 
+import com.appliedvillainy.hue.model.LightCommand;
 import com.appliedvillainy.hue.model.LightDto;
 import com.appliedvillainy.hue.service.BridgeDiscoveryService;
 import com.appliedvillainy.hue.service.HueLightService;
@@ -82,6 +83,89 @@ class BlinkAllBulbsTest {
         logger.info("========================================");
         logger.info("Test completed successfully!");
         logger.info("========================================");
+    }
+    
+    @Test
+    void colorRotateAllBulbsForFiveSeconds() throws InterruptedException {
+        logger.info("========================================");
+        logger.info("Starting 5-second color rotation test");
+        logger.info("========================================");
+        
+        // Step 1: Discover all bulbs/lights
+        List<LightDto> lights = hueLightService.getAllLights();
+        assertNotNull(lights, "Lights list should not be null");
+        assertFalse(lights.isEmpty(), "At least one light should be discovered");
+        
+        logger.info("Discovered {} light(s) for color rotation:", lights.size());
+        for (LightDto light : lights) {
+            logger.info("  - {} (ID: {})", light.getName(), light.getId());
+        }
+        
+        // Step 2: Turn all lights on and set full saturation
+        logger.info("\nTurning on all lights for color rotation...");
+        hueLightService.turnOnAllLights();
+        Thread.sleep(500); // Give lights time to turn on
+        
+        // Step 3: Rotate through colors for 5 seconds
+        logger.info("Starting color rotation sequence...");
+        
+        long startTime = System.currentTimeMillis();
+        long duration = 5000; // 5 seconds
+        int colorChangeInterval = 200; // Change color every 200ms for smooth rotation
+        
+        // Hue values range from 0 to 65535 in the Philips Hue API
+        // This represents the full color spectrum (0-360 degrees mapped to 0-65535)
+        int maxHue = 65535;
+        int hueStep = maxHue / 25; // Divide into 25 steps for 5 seconds (5000ms / 200ms)
+        int currentHueIndex = 0;
+        
+        while ((System.currentTimeMillis() - startTime) < duration) {
+            int hue = (currentHueIndex * hueStep) % maxHue;
+            
+            // Calculate approximate color name for logging
+            String colorName = getColorName(hue);
+            logger.info("Setting color to {} (hue: {})", colorName, hue);
+            
+            // Apply the color to all lights
+            for (LightDto light : lights) {
+                LightCommand colorCommand = LightCommand.builder()
+                    .on(true)
+                    .hue(hue)
+                    .saturation(254) // Max saturation for vibrant colors
+                    .brightness(254) // Max brightness
+                    .build();
+                
+                hueLightService.applyCommand(light.getId(), colorCommand);
+            }
+            
+            Thread.sleep(colorChangeInterval);
+            currentHueIndex++;
+        }
+        
+        // Cleanup: Turn all lights off at the end
+        logger.info("\nColor rotation complete. Turning all lights OFF");
+        hueLightService.turnOffAllLights();
+        
+        logger.info("========================================");
+        logger.info("Color rotation test completed successfully!");
+        logger.info("========================================");
+    }
+    
+    /**
+     * Convert hue value (0-65535) to a human-readable color name
+     */
+    private String getColorName(int hue) {
+        // Convert to degrees (0-360)
+        double degrees = (hue / 65535.0) * 360.0;
+        
+        if (degrees < 30 || degrees >= 330) return "Red";
+        if (degrees < 60) return "Orange";
+        if (degrees < 90) return "Yellow";
+        if (degrees < 150) return "Green";
+        if (degrees < 210) return "Cyan";
+        if (degrees < 270) return "Blue";
+        if (degrees < 330) return "Magenta";
+        return "Red";
     }
     
     @Test
