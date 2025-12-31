@@ -3,10 +3,12 @@ package com.appliedvillainy.hue.controller;
 import com.appliedvillainy.hue.model.LightCommand;
 import com.appliedvillainy.hue.model.LightDto;
 import com.appliedvillainy.hue.service.HueLightService;
+import io.github.zeroone3010.yahueapi.v2.Hue;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,10 +17,12 @@ import java.util.UUID;
 
 /**
  * REST controller for managing Zigbee lights via Philips Hue Bridge.
+ * Only active when Hue Bridge is enabled (hue.bridge.enabled=true).
  */
 @RestController
 @RequestMapping("/api/lights")
 @Tag(name = "Lights", description = "Control Zigbee lights via Philips Hue Bridge")
+@ConditionalOnBean(Hue.class)
 public class LightController {
 
     private final HueLightService lightService;

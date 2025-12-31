@@ -1,0 +1,33 @@
+# Test configuration - disables Hue Bridge to allow MQTT-only tests
+server:
+  port: 8080
+
+spring:
+  application:
+    name: hue-bridge-controller-test
+
+# Disable Hue Bridge for tests (causes connection failures)
+hue:
+  bridge:
+    enabled: false
+
+# MQTT Configuration - uses embedded Moquette broker
+mqtt:
+  enabled: true
+  broker-url: tcp://localhost:1883
+  base-topic: zigbee2mqtt
+  client-id: hue-bridge-app-test
+  qos: 1
+
+# Moquette Embedded MQTT Broker Configuration
+moquette:
+  enabled: true
+  port: 1883
+
+# Logging configuration
+logging:
+  level:
+    com.appliedvillainy.hue: DEBUG
+    io.moquette: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

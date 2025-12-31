@@ -6,12 +6,48 @@ spring:
     name: hue-bridge-controller
 
 # Philips Hue Bridge Configuration
+# - Set enabled to true and configure to use Philips Hue Bridge
 # - Set ip to 'auto' for autodiscovery, or specify a manual IP address
 # - Autodiscovery will query https://discovery.meethue.com to find the bridge
 hue:
   bridge:
+    enabled: false  # Disable if only using MQTT devices
     ip: auto  # Use 'auto' for autodiscovery or specify IP like '192.168.86.30'
     api-key: xMPVYUdfWO7knNcobBxqmfAKNVPwoSCa7ARhUCJ8
+
+# MQTT Configuration
+# - Set enabled to false to disable MQTT functionality
+# - Uses embedded Moquette broker by default (localhost:1883)
+# - Or configure broker-url to point to external broker
+mqtt:
+  enabled: true
+  broker-url: tcp://localhost:1883
+  base-topic: zigbee2mqtt
+  client-id: hue-bridge-app
+  qos: 1
+
+# Moquette Embedded MQTT Broker Configuration
+moquette:
+  enabled: true
+  port: 1883
+  websocket-port: 8883
+  allow-anonymous: true
+
+# WiFi Provisioning Configuration (for OpenBeken devices)
+# - Set enabled to true to automatically discover and configure OpenBeken devices
+# - Requires the machine to have WiFi capabilities and appropriate permissions
+wifi:
+  provisioning:
+    enabled: false  # Set to true to enable automatic device provisioning
+    scan-interval-seconds: 60  # How often to scan for new devices
+    target-ssid-pattern: "OpenBeken_.*"  # Pattern to match device SSIDs
+    wifi-ssid: "AV-nest"  # Your WiFi network name
+    wifi-password: "maxvector"  # Your WiFi password
+    mqtt-host: "auto"  # "auto" to use local IP, or specify IP address
+    mqtt-port: 1883
+    mqtt-topic: "openbeken"
+    device-config-timeout: 30000
+    device-ap-password: ""  # Usually empty for OpenBeken
 
 # Actuator endpoints for monitoring
 management:

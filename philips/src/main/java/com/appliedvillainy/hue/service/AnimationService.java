@@ -5,6 +5,7 @@ import io.github.zeroone3010.yahueapi.v2.Hue;
 import io.github.zeroone3010.yahueapi.v2.Light;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -14,8 +15,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Service for running light animations.
+ * Only created if Hue bean is available (hue.bridge.enabled=true).
  */
 @Service
+@ConditionalOnBean(Hue.class)
 public class AnimationService {
 
     private static final Logger logger = LoggerFactory.getLogger(AnimationService.class);

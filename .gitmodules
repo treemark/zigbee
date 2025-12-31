@@ -1,0 +1,6 @@
+[submodule "submodules/tinytuya"]
+	path = submodules/tinytuya
+	url = https://github.com/jasonacox/tinytuya.git
+[submodule "submodules/tuya-cloudcutter"]
+	path = submodules/tuya-cloudcutter
+	url = https://github.com/tuya-cloudcutter/tuya-cloudcutter.git

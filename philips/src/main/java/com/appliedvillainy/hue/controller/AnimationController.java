@@ -16,7 +16,8 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/animations")
-@Tag(name = "Animations", description = "Run animations on Zigbee lights")
+@Tag(name = "Animations", description = "Run light animations")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnBean(io.github.zeroone3010.yahueapi.v2.Hue.class)
 public class AnimationController {
 
     private final AnimationService animationService;

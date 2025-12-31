@@ -8,6 +8,7 @@ import io.github.zeroone3010.yahueapi.v2.Light;
 import io.github.zeroone3010.yahueapi.v2.UpdateState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -15,8 +16,10 @@ import java.util.stream.Collectors;
 
 /**
  * Service for managing Hue lights/Zigbee bulbs via the Philips Hue Bridge.
+ * Only created if Hue bean is available (hue.bridge.enabled=true).
  */
 @Service
+@ConditionalOnBean(Hue.class)
 public class HueLightService {
 
     private static final Logger logger = LoggerFactory.getLogger(HueLightService.class);

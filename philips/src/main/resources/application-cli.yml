@@ -1,0 +1,57 @@
+# CLI Mode Configuration
+# Run with: ./gradlew :philips:bootRun --args='--spring.profiles.active=cli'
+
+# Enable CLI interface
+cli:
+  enabled: true
+
+# Disable web server
+spring:
+  main:
+    web-application-type: none
+  application:
+    name: hue-bridge-cli
+
+# Philips Hue Bridge Configuration (disabled for CLI)
+hue:
+  bridge:
+    enabled: false
+
+# MQTT Configuration
+mqtt:
+  enabled: true
+  broker-url: tcp://localhost:1883
+  base-topic: zigbee2mqtt
+  client-id: hue-bridge-cli
+  qos: 1
+
+# Moquette Embedded MQTT Broker
+moquette:
+  enabled: true
+  port: 1883
+  websocket-port: 8883
+  allow-anonymous: true
+
+# WiFi Provisioning
+wifi:
+  provisioning:
+    enabled: false  # Set to true to enable automatic provisioning
+    scan-interval-seconds: 60
+    target-ssid-pattern: "OpenBeken_.*"
+    wifi-ssid: "AV-nest"
+    wifi-password: "maxvector"
+    mqtt-host: "auto"
+    mqtt-port: 1883
+    mqtt-topic: "openbeken"
+    device-config-timeout: 30000
+    device-ap-password: ""
+
+# Logging
+logging:
+  level:
+    com.appliedvillainy.hue: INFO
+    io.github.zeroone3010: WARN
+    org.springframework: WARN
+    io.moquette: WARN
+  pattern:
+    console: "%d{HH:mm:ss} %-5level %logger{36} - %msg%n"

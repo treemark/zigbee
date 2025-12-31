@@ -19,6 +19,18 @@ dependencies {
     // Philips Hue API
     implementation 'io.github.zeroone3010:yetanotherhueapi:3.0.0-beta-2'
     
+    // MQTT for Zigbee2MQTT devices
+    implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+    
+    // Moquette MQTT broker (embedded)
+    implementation('io.moquette:moquette-broker:0.17') {
+        exclude group: 'org.slf4j', module: 'slf4j-reload4j'
+        exclude group: 'ch.qos.reload4j', module: 'reload4j'
+    }
+    
+    // JSON processing
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    
     // Lombok for reducing boilerplate
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'

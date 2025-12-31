@@ -5,6 +5,7 @@ import io.github.zeroone3010.yahueapi.v2.Hue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,15 +13,18 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Configuration for connecting to the Philips Hue Bridge.
  * Supports autodiscovery if IP is not provided or set to "auto".
+ * Can be disabled by setting hue.bridge.enabled=false
  */
 @Configuration
 @ConfigurationProperties(prefix = "hue.bridge")
+@ConditionalOnProperty(name = "hue.bridge.enabled", havingValue = "true", matchIfMissing = true)
 public class HueBridgeConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(HueBridgeConfig.class);
 
     private String ip;
     private String apiKey;
+    private boolean enabled = true;
 
     @Autowired
     private BridgeDiscoveryService bridgeDiscoveryService;

@@ -18,7 +18,8 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/discovery")
-@Tag(name = "Bridge Discovery", description = "Endpoints for discovering Philips Hue Bridges")
+@Tag(name = "Discovery", description = "Discover Philips Hue Bridge")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnBean(io.github.zeroone3010.yahueapi.v2.Hue.class)
 public class DiscoveryController {
 
     private final BridgeDiscoveryService bridgeDiscoveryService;
