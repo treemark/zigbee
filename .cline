@@ -1,0 +1,299 @@
+# Project: HueBridge - MQTT Device Controller
+# Type: Java Spring Boot Application
+# Purpose: Control smart bulbs and IoT devices via MQTT
+
+## 🎯 PRIMARY DIRECTIVE
+**This is a JAVA-ONLY project.** All functionality must be implemented and executed using the Java Spring Boot application, NOT Python scripts or external tools.
+
+## 📋 Project Structure
+
+```
+zigbee/
+├── philips/                          # Main Spring Boot application
+│   ├── src/main/java/
+│   │   └── com/appliedvillainy/hue/
+│   │       ├── HueBridgeApplication.java      # Main application entry point
+│   │       ├── cli/
+│   │       │   └── HueBridgeCLI.java          # Command-line interface
+│   │       ├── controller/
+│   │       │   └── OpenBekenAnimationController.java
+│   │       ├── service/
+│   │       │   ├── MqttDeviceService.java     # Device management
+│   │       │   ├── MqttAnimationService.java  # Animation orchestration
+│   │       │   ├── OpenBekenAnimationService.java  # High-performance animations
+│   │       │   ├── MoquetteBrokerService.java # Embedded MQTT broker
+│   │       │   └── WiFiProvisioningService.java
+│   │       ├── config/
+│   │       └── model/
+│   ├── src/main/resources/
+│   │   ├── application.yml            # Default configuration
+│   │   └── application-cli.yml        # CLI mode configuration
+│   ├── build.gradle                   # Dependencies and build config
+│   ├── CLI_GUIDE.md                   # Complete CLI documentation
+│   ├── MQTT_DEVICES.md
+│   ├── OPENBEKEN_MQTT_SETUP.md
+│   └── WIFI_PROVISIONING.md
+├── build.gradle                       # Root build configuration
+├── settings.gradle                    # Multi-module project settings
+└── gradlew                            # Gradle wrapper
+
+LEGACY/IGNORED:
+├── test_*.py                          # ⚠️ DO NOT USE - Python test scripts (deprecated)
+├── control_*.sh                       # ⚠️ DO NOT USE - Shell scripts (deprecated)
+└── submodules/tinytuya/              # ⚠️ DO NOT USE - Python library (deprecated)
+```
+
+## 🚀 How to Run the Application
+
+### Build the Application (First Time)
+```bash
+./gradlew :philips:bootJar
+```
+
+### Interactive CLI Mode (Recommended)
+```bash
+# Using JAR (fastest)
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli
+
+# OR using Gradle
+./gradlew :philips:bootRun --args='--spring.profiles.active=cli'
+```
+
+### Non-Interactive Mode (Single Commands)
+```bash
+# Using JAR (fastest)
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli list
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli status
+
+# OR using Gradle (slower)
+./gradlew :philips:bootRun --args='--spring.profiles.active=cli list'
+```
+
+### Piped Commands (Multiple Commands)
+```bash
+echo -e "list\nstatus\nexit" | java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli
+```
+
+## 🎨 Available CLI Commands
+
+### Device Management
+- `list`, `ls` - List all MQTT devices
+- `info <device-name>` - Show detailed device information
+- `discover` - Trigger device discovery
+- `status` - Show system status
+
+### Device Control
+- `on <device-name> [brightness]` - Turn device on (brightness 0-255)
+- `off <device-name>` - Turn device off
+- `brightness <device-name> <value>` - Set brightness (0-255)
+
+### Animations
+- `pulse <device> [cycles] [interval-ms]` - Pulse animation
+- `rainbow <device> [duration-ms] [steps]` - Rainbow color cycle (uses color temperature sweep)
+- `breathe <device> [cycles] [duration-ms]` - Breathing fade effect
+- `stop [device-name]` - Stop animations
+- `animations` - List running animations
+
+### OpenBeken Direct Control
+- `obk <device-id> on` - Turn OpenBeken device on
+- `obk <device-id> off` - Turn OpenBeken device off
+- `obk <device-id> toggle` - Toggle OpenBeken device
+- `obk <device-id> dimmer <0-100>` - Set OpenBeken device brightness
+
+### WiFi Provisioning
+- `provision` - Scan and provision OpenBeken devices
+- `provision <ssid>` - Provision specific device by SSID
+- `provisioned` - List provisioned devices
+
+### General
+- `help`, `?` - Show help message
+- `exit`, `quit`, `q` - Exit CLI (interactive mode only)
+
+## 🎯 Animation Implementation Guidelines
+
+### For Color Rotation (Hue Sweep)
+The `OpenBekenAnimationService.animateColorRotation()` method is available for RGB color rotation:
+
+```java
+// Example usage in service layer
+openBekenAnimationService.animateColorRotation(
+    "group-name",    // Device group or individual device ID
+    3,               // Number of complete rotations
+    10,              // Hue step size (smaller = smoother)
+    50               // Delay between updates (ms)
+);
+```
+
+**Implementation Pattern:**
+1. Add CLI command in `HueBridgeCLI.java`
+2. Use `OpenBekenAnimationService` for OpenBeken devices
+3. Use `MqttAnimationService` for Zigbee2MQTT devices
+4. Animations run asynchronously via `@Async`
+5. Use QoS 0 MQTT for maximum performance
+
+## 🔧 Key Services
+
+### MqttDeviceService
+- Manages MQTT device connections
+- Handles device discovery
+- Sends commands to devices
+- Maintains device state
+
+### OpenBekenAnimationService
+- High-performance animations for OpenBeken devices
+- Direct MQTT commands (QoS 0)
+- Methods: `animateColorRotation`, `animatePulse`, `animateBrightnessSweep`, `animateWave`, `animateChase`, `animateSynchronizedFlash`
+- Uses HSB color format: `"hue,saturation,brightness"`
+
+### MqttAnimationService
+- Animation orchestration for Zigbee2MQTT devices
+- Methods: `pulseDevice`, `breatheDevice`, `colorTempSweep`
+- Tracks running animations
+
+### MoquetteBrokerService
+- Embedded MQTT broker (Moquette)
+- Runs on port 1883
+- Auto-starts with application
+
+## 📝 Configuration
+
+### Key Configuration Files
+- `philips/src/main/resources/application.yml` - Default config
+- `philips/src/main/resources/application-cli.yml` - CLI mode (no web server)
+
+### Important Settings
+```yaml
+# MQTT
+mqtt:
+  enabled: true
+  broker-url: tcp://localhost:1883
+  base-topic: zigbee2mqtt
+
+# Embedded Broker
+moquette:
+  enabled: true
+  port: 1883
+
+# CLI Mode
+cli:
+  enabled: true
+
+# Web Server (disabled in CLI mode)
+spring:
+  main:
+    web-application-type: none
+```
+
+## ⚡ Performance Best Practices
+
+1. **Use JAR for faster execution**: Built JAR runs ~3x faster than Gradle bootRun
+2. **QoS 0 for animations**: Fire-and-forget for maximum throughput
+3. **Async animations**: Don't block the main thread
+4. **Group topics**: Use MQTT group topics for coordinated animations
+5. **HSB color space**: More efficient for smooth color transitions
+
+## 🚫 What NOT to Do
+
+❌ **DO NOT** use Python scripts (`test_*.py`) for any functionality
+❌ **DO NOT** create shell scripts as primary implementation
+❌ **DO NOT** rely on external MQTT brokers when embedded broker is available
+❌ **DO NOT** bypass the Java CLI for device control or animations
+❌ **DO NOT** implement new features outside the Java codebase
+
+## ✅ What TO Do
+
+✅ **DO** implement all new features in Java
+✅ **DO** use the Spring Boot CLI for all operations
+✅ **DO** add new commands to `HueBridgeCLI.java`
+✅ **DO** use appropriate service classes (`OpenBekenAnimationService`, `MqttDeviceService`, etc.)
+✅ **DO** update CLI_GUIDE.md when adding new commands
+✅ **DO** follow Spring Boot best practices
+✅ **DO** use `@Service`, `@Component`, `@Async` annotations appropriately
+
+## 🐛 Common Issues and Solutions
+
+### "Address already in use" (Port 1883)
+**Problem**: Another MQTT broker is running
+**Solution**: Stop other MQTT processes or the broker will retry
+
+### MqttClient Bean Not Found
+**Problem**: OpenBekenAnimationService requires MqttClient bean
+**Solution**: Ensure MqttConfig properly creates and exposes MqttClient bean
+
+### Application Won't Start in CLI Mode
+**Problem**: Missing `--spring.profiles.active=cli` flag
+**Solution**: Always include profile flag: `java -jar ... --spring.profiles.active=cli`
+
+## 📚 Documentation
+
+- **CLI_GUIDE.md**: Complete CLI command reference
+- **MQTT_DEVICES.md**: MQTT device integration guide  
+- **OPENBEKEN_MQTT_SETUP.md**: OpenBeken device setup
+- **WIFI_PROVISIONING.md**: WiFi provisioning guide
+- **MQTT_QUICKSTART.md**: Quick start guide
+
+## 🎯 Development Workflow
+
+1. **Make changes** to Java source files
+2. **Build** (if needed): `./gradlew :philips:bootJar`
+3. **Test** using CLI: `java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli`
+4. **Verify** functionality works as expected
+5. **Document** new features in CLI_GUIDE.md
+
+## 🔄 Adding New Animation Commands
+
+To add a new animation command (e.g., "sparkle"):
+
+1. **Service Layer**: Add method to `OpenBekenAnimationService.java`
+   ```java
+   @Async
+   public CompletableFuture<Void> animateSparkle(String group, int duration) {
+       // Implementation
+   }
+   ```
+
+2. **CLI Layer**: Add command case in `HueBridgeCLI.java`
+   ```java
+   case "sparkle":
+       if (parts.length < 2) {
+           System.out.println("Usage: sparkle <device-name> [duration-ms]");
+       } else {
+           String deviceName = parts[1];
+           long duration = parts.length >= 3 ? Long.parseLong(parts[2]) : 5000;
+           runSparkleAnimation(deviceName, duration);
+       }
+       break;
+   ```
+
+3. **Helper Method**: Add helper in `HueBridgeCLI.java`
+   ```java
+   private void runSparkleAnimation(String deviceName, long duration) {
+       System.out.printf("Starting sparkle animation: %s (%dms duration)\n", 
+           deviceName, duration);
+       openBekenAnimationService.animateSparkle(deviceName, duration);
+       System.out.println("✓ Animation started");
+   }
+   ```
+
+4. **Documentation**: Update CLI_GUIDE.md with new command
+
+## 🎨 Technology Stack
+
+- **Language**: Java 21
+- **Framework**: Spring Boot 3.2.1
+- **Build Tool**: Gradle 8.13
+- **MQTT Client**: Eclipse Paho
+- **MQTT Broker**: Moquette (embedded)
+- **Async**: Spring @Async
+- **Architecture**: Multi-module Gradle project
+
+## 📌 Remember
+
+This is a **professional Java Spring Boot application**. All implementations, features, and operations should be done through the Java codebase using proper Spring Boot patterns and the CLI interface. Python scripts and shell scripts are legacy artifacts and should not be used or extended.
+
+---
+
+**Last Updated**: 2025-12-31
+**Primary Application**: `philips/` module
+**Main Class**: `com.appliedvillainy.hue.HueBridgeApplication`
+**CLI Class**: `com.appliedvillainy.hue.cli.HueBridgeCLI`

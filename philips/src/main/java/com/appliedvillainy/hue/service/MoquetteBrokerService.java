@@ -129,26 +129,32 @@ public class MoquetteBrokerService {
 
         @Override
         public void onPublish(InterceptPublishMessage msg) {
-            String payload = new String(msg.getPayload().array());
-            logger.debug("Message published - Topic: {}, QoS: {}, Payload: {}", 
-                msg.getTopicName(), 
-                msg.getQos(), 
-                payload.length() > 100 ? payload.substring(0, 100) + "..." : payload);
+            try {
+                // Properly read from Netty ByteBuf (handles both direct and heap buffers)
+                io.netty.buffer.ByteBuf byteBuf = msg.getPayload();
+                byte[] bytes = new byte[byteBuf.readableBytes()];
+                byteBuf.getBytes(byteBuf.readerIndex(), bytes);
+                String payload = new String(bytes);
+                
+                logger.debug("Message published - Topic: {}, QoS: {}, Payload: {}", 
+                    msg.getTopicName(), 
+                    msg.getQos(), 
+                    payload.length() > 100 ? payload.substring(0, 100) + "..." : payload);
+            } catch (Exception e) {
+                logger.debug("Message published - Topic: {}, QoS: {} (payload not readable)", 
+                    msg.getTopicName(), 
+                    msg.getQos());
+            }
         }
 
         @Override
         public void onSubscribe(InterceptSubscribeMessage msg) {
-            logger.info("Client {} subscribed to topic: {} with QoS: {}", 
-                msg.getClientID(), 
-                msg.getTopicFilter(), 
-                msg.getRequestedQos());
+            logger.info("Client subscribed");
         }
 
         @Override
         public void onUnsubscribe(InterceptUnsubscribeMessage msg) {
-            logger.info("Client {} unsubscribed from topic: {}", 
-                msg.getClientID(), 
-                msg.getTopicFilter());
+            logger.info("Client unsubscribed");
         }
 
         @Override

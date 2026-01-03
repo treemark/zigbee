@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Service for discovering and controlling MQTT devices via Zigbee2MQTT.
  */
 @Service
+@org.springframework.context.annotation.DependsOn("moquetteBrokerService")
 public class MqttDeviceService implements MqttCallback {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttDeviceService.class);
@@ -332,5 +333,12 @@ public class MqttDeviceService implements MqttCallback {
 
     public boolean isConnected() {
         return connected;
+    }
+
+    /**
+     * Get the MQTT client for use by other services.
+     */
+    public MqttClient getMqttClient() {
+        return mqttClient;
     }
 }

@@ -29,21 +29,52 @@ public class HueBridgeCLI implements CommandLineRunner {
     private final MqttDeviceService mqttDeviceService;
     private final MqttAnimationService mqttAnimationService;
     private final WiFiProvisioningService wifiProvisioningService;
+    private final com.appliedvillainy.hue.service.OpenBekenAnimationService openBekenAnimationService;
 
     public HueBridgeCLI(MqttDeviceService mqttDeviceService,
                         MqttAnimationService mqttAnimationService,
-                        @Autowired(required = false) WiFiProvisioningService wifiProvisioningService) {
+                        @Autowired(required = false) WiFiProvisioningService wifiProvisioningService,
+                        @Autowired(required = false) com.appliedvillainy.hue.service.OpenBekenAnimationService openBekenAnimationService) {
         this.mqttDeviceService = mqttDeviceService;
         this.mqttAnimationService = mqttAnimationService;
         this.wifiProvisioningService = wifiProvisioningService;
+        this.openBekenAnimationService = openBekenAnimationService;
     }
 
     @Override
     public void run(String... args) throws Exception {
-        printBanner();
-        
         // Give services time to initialize
         Thread.sleep(2000);
+        
+        // If command-line arguments provided, run in non-interactive mode
+        if (args.length > 0) {
+            runNonInteractiveMode(args);
+            System.exit(0);
+            return;
+        }
+        
+        // Otherwise, run in interactive mode
+        runInteractiveMode();
+    }
+
+    /**
+     * Run a single command from command-line arguments and exit
+     */
+    private void runNonInteractiveMode(String[] args) {
+        try {
+            executeCommand(args);
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+            logger.error("Command execution error", e);
+            System.exit(1);
+        }
+    }
+
+    /**
+     * Run interactive prompt mode
+     */
+    private void runInteractiveMode() {
+        printBanner();
         
         Scanner scanner = new Scanner(System.in);
         boolean running = true;
@@ -57,10 +88,35 @@ public class HueBridgeCLI implements CommandLineRunner {
             }
 
             String[] parts = input.split("\\s+");
-            String command = parts[0].toLowerCase();
 
             try {
-                switch (command) {
+                String result = executeCommand(parts);
+                if ("EXIT".equals(result)) {
+                    running = false;
+                }
+            } catch (Exception e) {
+                System.out.println("Error: " + e.getMessage());
+                logger.error("Command execution error", e);
+            }
+        }
+
+        scanner.close();
+        System.exit(0);
+    }
+
+    /**
+     * Execute a command from the provided arguments
+     * @param parts Command and arguments
+     * @return "EXIT" if should exit, null otherwise
+     */
+    private String executeCommand(String[] parts) throws Exception {
+        if (parts.length == 0) {
+            return null;
+        }
+
+        String command = parts[0].toLowerCase();
+
+        switch (command) {
                     case "help":
                     case "?":
                         printHelp();
@@ -124,12 +180,14 @@ public class HueBridgeCLI implements CommandLineRunner {
                     
                     case "rainbow":
                         if (parts.length < 2) {
-                            System.out.println("Usage: rainbow <device-name> [duration-ms] [steps]");
+                            System.out.println("Usage: rainbow <device-id> [cycles] [hue-step] [delay-ms]");
+                            System.out.println("Example: rainbow obk17811957 3 10 30");
                         } else {
-                            String deviceName = parts[1];
-                            long duration = parts.length >= 3 ? Long.parseLong(parts[2]) : 10000;
-                            int steps = parts.length >= 4 ? Integer.parseInt(parts[3]) : 50;
-                            runRainbowAnimation(deviceName, duration, steps);
+                            String deviceId = parts[1];
+                            int cycles = parts.length >= 3 ? Integer.parseInt(parts[2]) : 3;
+                            int hueStep = parts.length >= 4 ? Integer.parseInt(parts[3]) : 10;
+                            int delayMs = parts.length >= 5 ? Integer.parseInt(parts[4]) : 30;
+                            runRainbowColorRotation(deviceId, cycles, hueStep, delayMs);
                         }
                         break;
                     
@@ -160,7 +218,13 @@ public class HueBridgeCLI implements CommandLineRunner {
                         break;
                     
                     case "provision":
-                        provisionDevices();
+                        if (parts.length == 2) {
+                            // Provision specific SSID
+                            provisionSpecificDevice(parts[1]);
+                        } else {
+                            // Scan and provision
+                            provisionDevices();
+                        }
                         break;
                     
                     case "provisioned":
@@ -175,25 +239,32 @@ public class HueBridgeCLI implements CommandLineRunner {
                         showStatus();
                         break;
                     
-                    case "exit":
-                    case "quit":
-                    case "q":
-                        running = false;
-                        System.out.println("Goodbye!");
+                    case "obk":
+                    case "openbeken":
+                        if (parts.length < 3) {
+                            System.out.println("Usage: obk <device-id> <on|off|toggle|dimmer> [value]");
+                            System.out.println("Examples:");
+                            System.out.println("  obk obk17811957 on           - Turn device on");
+                            System.out.println("  obk obk17811957 off          - Turn device off");
+                            System.out.println("  obk obk17811957 toggle       - Toggle device");
+                            System.out.println("  obk obk17811957 dimmer 50    - Set brightness to 50%");
+                        } else {
+                            controlOpenBeken(parts);
+                        }
                         break;
                     
-                    default:
-                        System.out.println("Unknown command: " + command);
-                        System.out.println("Type 'help' for available commands");
-                }
-            } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
-                logger.error("Command execution error", e);
-            }
+                case "exit":
+                case "quit":
+                case "q":
+                    System.out.println("Goodbye!");
+                    return "EXIT";
+                
+                default:
+                    System.out.println("Unknown command: " + command);
+                    System.out.println("Type 'help' for available commands");
         }
-
-        scanner.close();
-        System.exit(0);
+        
+        return null;
     }
 
     private void printBanner() {
@@ -229,12 +300,19 @@ public class HueBridgeCLI implements CommandLineRunner {
         System.out.println("  animations                              - List running animations");
         
         System.out.println("\n=== WiFi Provisioning ===");
-        System.out.println("  provision                   - Scan and provision OpenBeken devices");
-        System.out.println("  provisioned                 - List provisioned devices");
+        System.out.println("  provision                      - Scan and provision OpenBeken devices");
+        System.out.println("  provision <ssid>               - Provision specific device by SSID");
+        System.out.println("  provisioned                    - List provisioned devices");
         
         System.out.println("\n=== General ===");
         System.out.println("  help, ?                     - Show this help message");
-        System.out.println("  exit, quit, q               - Exit CLI");
+        System.out.println("  exit, quit, q               - Exit CLI (interactive mode only)");
+        
+        System.out.println("\n=== Usage ===");
+        System.out.println("  Interactive mode: Run without arguments to start interactive shell");
+        System.out.println("  Non-interactive:  java -jar app.jar <command> [args...]");
+        System.out.println("  Example:          java -jar app.jar list");
+        System.out.println("  Example:          java -jar app.jar on \"Living Room\" 200");
         System.out.println();
     }
 
@@ -341,12 +419,41 @@ public class HueBridgeCLI implements CommandLineRunner {
         System.out.println("✓ Animation started");
     }
 
-    private void runRainbowAnimation(String deviceName, long duration, int steps) {
-        System.out.printf("Starting color temperature sweep: %s (%dms duration)\n", 
-            deviceName, duration);
-        // Use color temp sweep as an alternative to rainbow
-        mqttAnimationService.colorTempSweep(deviceName, 5, 250, 454, duration / 5);
-        System.out.println("✓ Animation started");
+    private void runRainbowColorRotation(String deviceId, int cycles, int hueStep, int delayMs) {
+        if (openBekenAnimationService == null) {
+            System.out.println("✗ OpenBeken Animation Service not available");
+            return;
+        }
+        
+        System.out.println("\n╔═══════════════════════════════════════════════════════════╗");
+        System.out.println("║        Rainbow Color Rotation Animation via MQTT         ║");
+        System.out.println("╚═══════════════════════════════════════════════════════════╝");
+        System.out.println();
+        System.out.printf("Device ID: %s\n", deviceId);
+        System.out.printf("Cycles: %d complete rotations\n", cycles);
+        System.out.printf("Hue Step: %d° (%d steps per rotation)\n", hueStep, 360/hueStep);
+        System.out.printf("Delay: %dms between updates\n", delayMs);
+        System.out.printf("Total Duration: ~%.1f seconds\n", (cycles * (360.0/hueStep) * delayMs) / 1000.0);
+        System.out.println("Protocol: MQTT QoS 0 (fire-and-forget)");
+        System.out.println();
+        System.out.println("→ Starting color rotation animation...");
+        
+        try {
+            openBekenAnimationService.animateColorRotation(deviceId, cycles, hueStep, delayMs);
+            System.out.println("✓ Rainbow animation started successfully!");
+            System.out.println("✓ Animation running in background");
+            System.out.println();
+            System.out.println("─────────────────────────────────────────────────────────────");
+            System.out.println("The bulb will cycle through:");
+            System.out.println("  Red → Orange → Yellow → Green → Cyan → Blue → Magenta → Red");
+            System.out.println();
+            System.out.println("Use 'animations' to see running animations");
+            System.out.println("Use 'stop' to stop all animations");
+            System.out.println("─────────────────────────────────────────────────────────────");
+        } catch (Exception e) {
+            System.out.println("\n✗ Error starting animation: " + e.getMessage());
+            logger.error("Rainbow animation error", e);
+        }
     }
 
     private void runBreatheAnimation(String deviceName, int cycles, long duration) {
@@ -377,10 +484,34 @@ public class HueBridgeCLI implements CommandLineRunner {
         
         System.out.println("\nScanning for OpenBeken devices to provision...");
         System.out.println("This may take a minute...");
+        System.out.println("NOTE: On macOS, scanning is restricted. Use 'provision <ssid>' instead.");
         
         try {
             wifiProvisioningService.scanForDevices();
             System.out.println("✓ Provisioning scan completed");
+        } catch (Exception e) {
+            System.out.println("✗ Provisioning failed: " + e.getMessage());
+        }
+    }
+
+    private void provisionSpecificDevice(String ssid) {
+        if (wifiProvisioningService == null) {
+            System.out.println("\nWiFi provisioning is not enabled.");
+            System.out.println("Set wifi.provisioning.enabled=true in application-cli.yml to enable.");
+            return;
+        }
+        
+        System.out.printf("\nProvisioning device: %s\n", ssid);
+        System.out.println("Make sure you're connected to this device's WiFi network first!");
+        System.out.println();
+        
+        try {
+            boolean success = wifiProvisioningService.provisionSpecificDevice(ssid);
+            if (success) {
+                System.out.println("✓ Device provisioned successfully");
+            } else {
+                System.out.println("✗ Provisioning failed");
+            }
         } catch (Exception e) {
             System.out.println("✗ Provisioning failed: " + e.getMessage());
         }
@@ -431,6 +562,86 @@ public class HueBridgeCLI implements CommandLineRunner {
             wifiProvisioningService.getProvisionedDevices().size() : 0;
         System.out.printf("│ Provisioned Devices: %-23d│%n", provisionedCount);
         System.out.println("└─────────────────────────────────────────────┘");
+    }
+
+    private void controlOpenBeken(String[] parts) {
+        if (openBekenAnimationService == null) {
+            System.out.println("OpenBeken service not available");
+            return;
+        }
+
+        String deviceId = parts[1];
+        String command = parts[2].toLowerCase();
+        
+        System.out.println("\n╔═══════════════════════════════════════════════════════════╗");
+        System.out.println("║     OpenBeken Device Control via MQTT                     ║");
+        System.out.println("╚═══════════════════════════════════════════════════════════╝");
+        System.out.println();
+        System.out.printf("Device: %s\n", deviceId);
+        System.out.printf("Command: %s\n", command);
+        System.out.println("Protocol: MQTT (QoS 0)");
+        System.out.println();
+
+        try {
+            switch (command) {
+                case "on":
+                    System.out.println("→ Publishing MQTT message:");
+                    System.out.println("  Topic: cmnd/" + deviceId + "/POWER1");
+                    System.out.println("  Payload: 1");
+                    openBekenAnimationService.sendToDevice(deviceId, "POWER1", "1");
+                    System.out.println("\n✓ MQTT message published successfully");
+                    System.out.println("✓ Device should now be ON");
+                    break;
+                    
+                case "off":
+                    System.out.println("→ Publishing MQTT message:");
+                    System.out.println("  Topic: cmnd/" + deviceId + "/POWER1");
+                    System.out.println("  Payload: 0");
+                    openBekenAnimationService.sendToDevice(deviceId, "POWER1", "0");
+                    System.out.println("\n✓ MQTT message published successfully");
+                    System.out.println("✓ Device should now be OFF");
+                    break;
+                    
+                case "toggle":
+                    System.out.println("→ Publishing MQTT message:");
+                    System.out.println("  Topic: cmnd/" + deviceId + "/POWER1");
+                    System.out.println("  Payload: 2");
+                    openBekenAnimationService.sendToDevice(deviceId, "POWER1", "2");
+                    System.out.println("\n✓ MQTT message published successfully");
+                    System.out.println("✓ Device should now be TOGGLED");
+                    break;
+                    
+                case "dimmer":
+                    if (parts.length < 4) {
+                        System.out.println("✗ Error: Dimmer command requires a value (0-100)");
+                        return;
+                    }
+                    int brightness = Integer.parseInt(parts[3]);
+                    if (brightness < 0 || brightness > 100) {
+                        System.out.println("✗ Error: Brightness must be between 0 and 100");
+                        return;
+                    }
+                    System.out.println("→ Publishing MQTT message:");
+                    System.out.println("  Topic: cmnd/" + deviceId + "/Dimmer");
+                    System.out.println("  Payload: " + brightness);
+                    openBekenAnimationService.sendToDevice(deviceId, "Dimmer", String.valueOf(brightness));
+                    System.out.println("\n✓ MQTT message published successfully");
+                    System.out.printf("✓ Device brightness set to %d%%\n", brightness);
+                    break;
+                    
+                default:
+                    System.out.println("✗ Unknown command: " + command);
+                    System.out.println("Available commands: on, off, toggle, dimmer");
+            }
+            
+            System.out.println("\n─────────────────────────────────────────────────────────────");
+            System.out.println("Check device web UI to verify: http://192.168.86.66/");
+            System.out.println("─────────────────────────────────────────────────────────────");
+            
+        } catch (Exception e) {
+            System.out.println("\n✗ Error: " + e.getMessage());
+            logger.error("OpenBeken control error", e);
+        }
     }
 
     private String truncate(String str, int maxLength) {

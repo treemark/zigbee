@@ -40,7 +40,7 @@ wifi:
   provisioning:
     enabled: false  # Set to true to enable automatic device provisioning
     scan-interval-seconds: 60  # How often to scan for new devices
-    target-ssid-pattern: "OpenBeken_.*"  # Pattern to match device SSIDs
+    target-ssid-pattern: "OpenBK.*"  # Pattern to match device SSIDs
     wifi-ssid: "AV-nest"  # Your WiFi network name
     wifi-password: "maxvector"  # Your WiFi password
     mqtt-host: "auto"  # "auto" to use local IP, or specify IP address

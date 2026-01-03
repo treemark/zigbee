@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
  * 5. Disconnects and allows device to join your network
  */
 @Service
-@ConditionalOnProperty(name = "wifi.provisioning.enabled", havingValue = "true")
+//@ConditionalOnProperty(name = "wifi.provisioning.enabled", havingValue = "true")
 public class WiFiProvisioningService {
 
     private static final Logger logger = LoggerFactory.getLogger(WiFiProvisioningService.class);
@@ -77,19 +77,20 @@ public class WiFiProvisioningService {
      * Periodically scan for OpenBeken devices.
      * Runs every N seconds as configured.
      */
-    @Scheduled(fixedDelayString = "${wifi.provisioning.scan-interval-seconds:60}000", 
-               initialDelay = 5000)
-    @Async
+//    @Scheduled(fixedDelayString = "${wifi.provisioning.scan-interval-seconds:60}000",
+//               initialDelay = 5000)
+//    @Async
     public void scanForDevices() {
-        if (!running) {
-            return;
-        }
+//        if (!running) {
+//            return;
+//        }
 
         try {
-            logger.debug("Scanning for OpenBeken devices...");
+            logger.info("Scanning for OpenBeken devices...");
             List<String> availableNetworks = scanWiFiNetworks();
             
             for (String ssid : availableNetworks) {
+                logger.info("Found {}",ssid);
                 if (ssidPattern.matcher(ssid).matches()) {
                     if (!provisionedDevices.contains(ssid)) {
                         logger.info("Found new OpenBeken device: {}", ssid);
@@ -107,6 +108,8 @@ public class WiFiProvisioningService {
     /**
      * Scan for available WiFi networks.
      * Uses platform-specific commands (macOS: airport, Linux: nmcli/iwlist, Windows: netsh)
+     * 
+     * NOTE: On macOS, this requires running with sudo/root privileges.
      */
     private List<String> scanWiFiNetworks() throws Exception {
         List<String> networks = new ArrayList<>();
@@ -116,7 +119,7 @@ public class WiFiProvisioningService {
             ProcessBuilder pb;
             
             if (os.contains("mac")) {
-                // macOS using airport utility
+                // macOS using airport utility (requires root privileges)
                 pb = new ProcessBuilder(
                     "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport",
                     "-s"
@@ -133,6 +136,8 @@ public class WiFiProvisioningService {
             }
 
             Process process = pb.start();
+            
+            // Read stdout
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream()))) {
                 
@@ -162,7 +167,35 @@ public class WiFiProvisioningService {
                 }
             }
             
-            process.waitFor();
+            // Read stderr for error messages
+            try (BufferedReader errReader = new BufferedReader(
+                    new InputStreamReader(process.getErrorStream()))) {
+                String errLine;
+                StringBuilder errors = new StringBuilder();
+                while ((errLine = errReader.readLine()) != null) {
+                    errors.append(errLine).append("\n");
+                }
+                if (errors.length() > 0) {
+                    logger.warn("WiFi scan errors: {}", errors.toString().trim());
+                }
+            }
+            
+            int exitCode = process.waitFor();
+            
+            if (exitCode != 0) {
+                if (os.contains("mac")) {
+                    logger.error("WiFi scan failed with exit code {}. On macOS, the 'airport' command requires sudo/root privileges.", exitCode);
+                    logger.error("Please run this application with: sudo java -jar huebridge.jar ...");
+                } else {
+                    logger.error("WiFi scan failed with exit code {}", exitCode);
+                }
+            }
+            
+            if (networks.isEmpty() && os.contains("mac")) {
+                logger.warn("No networks found. On macOS, make sure you're running with sudo privileges:");
+                logger.warn("  sudo java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli");
+            }
+            
             logger.debug("Found {} networks", networks.size());
             
         } catch (Exception e) {
@@ -174,9 +207,59 @@ public class WiFiProvisioningService {
     }
 
     /**
-     * Provision a specific OpenBeken device.
+     * Provision a specific device by SSID (skips scanning).
+     * Assumes you're already connected to the device's WiFi network.
+     * @param ssid The SSID of the device to provision
+     * @return true if successful, false otherwise
      */
-    private void provisionDevice(String ssid) {
+    public boolean provisionSpecificDevice(String ssid) {
+        logger.info("========================================");
+        logger.info("Provisioning specific device: {}", ssid);
+        logger.info("Assuming already connected to device WiFi");
+        logger.info("========================================");
+
+        try {
+            // Get local IP for MQTT broker
+            String mqttHost = config.getMqttHost();
+            if ("auto".equalsIgnoreCase(mqttHost)) {
+                mqttHost = getLocalIPAddress();
+                logger.info("Auto-detected local IP: {}", mqttHost);
+            }
+
+            // Configure the device
+            logger.info("Configuring device...");
+            boolean configured = configureOpenBekenDevice(
+                config.getWifiSsid(),
+                config.getWifiPassword(),
+                mqttHost,
+                config.getMqttPort(),
+                config.getMqttTopic()
+            );
+
+            if (configured) {
+                logger.info("✓ Successfully configured device: {}", ssid);
+                provisionedDevices.add(ssid);
+                
+                logger.info("========================================");
+                logger.info("Device {} should now reboot and connect!", ssid);
+                logger.info("It will publish to MQTT broker at {}:{}", mqttHost, config.getMqttPort());
+                logger.info("========================================");
+                return true;
+            } else {
+                logger.error("✗ Failed to configure device: {}", ssid);
+                return false;
+            }
+
+        } catch (Exception e) {
+            logger.error("Error provisioning device {}: {}", ssid, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Provision a specific OpenBeken device (with auto-connect).
+     */
+    public void provisionDevice(String ssid) {
         logger.info("========================================");
         logger.info("Provisioning device: {}", ssid);
         logger.info("========================================");

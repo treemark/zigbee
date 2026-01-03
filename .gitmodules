@@ -4,3 +4,6 @@
 [submodule "submodules/tuya-cloudcutter"]
 	path = submodules/tuya-cloudcutter
 	url = https://github.com/tuya-cloudcutter/tuya-cloudcutter.git
+[submodule "submodules/tuya-convert"]
+	path = submodules/tuya-convert
+	url = https://github.com/ct-Open-Source/tuya-convert

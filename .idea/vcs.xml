@@ -2,5 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/tinytuya" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/tuya-cloudcutter" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/tuya-convert" vcs="Git" />
   </component>
 </project>

@@ -10,6 +10,27 @@ java {
     sourceCompatibility = '17'
 }
 
+// Configure Spring Boot executable jar
+bootJar {
+    enabled = true
+    archiveClassifier = ''
+    archiveBaseName = 'huebridge'
+    archiveVersion = version
+    
+    // Make jar executable
+    launchScript()
+}
+
+// Disable plain jar creation (only create the boot jar)
+jar {
+    enabled = false
+}
+
+// Specify main class
+springBoot {
+    mainClass = 'com.appliedvillainy.hue.HueBridgeApplication'
+}
+
 dependencies {
     // Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-web'

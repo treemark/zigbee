@@ -13,10 +13,32 @@ Interactive command-line interface for controlling MQTT devices, running animati
 
 ## Quick Start
 
-### Run CLI Mode
+First, build the executable jar (one time):
 
 ```bash
+./gradlew :philips:bootJar
+```
+
+This creates `philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar`
+
+### Interactive Mode
+
+Run without arguments to start the interactive shell:
+
+**Using Gradle:**
+```bash
 ./gradlew :philips:bootRun --args='--spring.profiles.active=cli'
+```
+
+**Using Jar (Recommended):**
+```bash
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli
+```
+
+Or make the jar executable and run directly:
+```bash
+chmod +x philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar
+./philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli
 ```
 
 You'll see the interactive prompt:
@@ -33,6 +55,35 @@ You'll see the interactive prompt:
 
 huebridge> 
 ```
+
+### Non-Interactive Mode
+
+Run a single command and exit immediately:
+
+**Using Jar (Recommended - Much Faster!):**
+```bash
+# List all devices
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli list
+
+# Turn on a device with brightness
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli on "Living Room Light" 200
+
+# Turn off a device
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli off "Bedroom Light"
+
+# Check system status
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli status
+
+# Start an animation
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli pulse "Kitchen Light" 5 500
+```
+
+**Using Gradle (Slower):**
+```bash
+./gradlew :philips:bootRun --args='--spring.profiles.active=cli list'
+```
+
+**Note:** In non-interactive mode, the command executes immediately and the program exits. This is ideal for scripting and automation. The jar method is significantly faster as it skips Gradle overhead.
 
 ## Available Commands
 
@@ -339,29 +390,58 @@ Goodbye!
 For devices with spaces, quote the name or type it exactly:
 
 ```bash
+# Interactive mode
 huebridge> on "Living Room Light"
 huebridge> on Living Room Light  # Also works
+
+# Non-interactive mode - quotes required
+./gradlew :philips:bootRun --args='--spring.profiles.active=cli on "Living Room Light"'
 ```
 
-### 2. Chain Commands
+### 2. Non-Interactive Commands
 
-Run multiple commands with semicolons (shell level):
+Perfect for scripts and automation:
 
 ```bash
-$ echo -e "list\nstatus\nexit" | ./gradlew :philips:bootRun --args='--spring.profiles.active=cli'
+# Single command execution using jar (fast!)
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli list
+
+# Use in shell scripts
+#!/bin/bash
+JAR_PATH="philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar"
+STATUS=$(java -jar $JAR_PATH --spring.profiles.active=cli status)
+echo "$STATUS"
 ```
 
-### 3. Background Animations
+### 3. Chain Commands (Interactive Mode)
+
+Run multiple commands with piped input:
+
+**Using Jar:**
+```bash
+echo -e "list\nstatus\nexit" | java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli
+```
+
+**Using Gradle:**
+```bash
+echo -e "list\nstatus\nexit" | ./gradlew :philips:bootRun --args='--spring.profiles.active=cli'
+```
+
+### 4. Background Animations
 
 Animations run asynchronously - you can continue using CLI while they run:
 
 ```bash
+# Interactive mode
 huebridge> rainbow Light1
 huebridge> pulse Light2
 huebridge> list  # CLI still responsive
+
+# Non-interactive mode - animation runs in background
+java -jar philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli breathe "Bedroom Light" 10 3000 &
 ```
 
-### 4. Quick Brightness Control
+### 5. Quick Brightness Control
 
 Use alias for brightness:
 
@@ -413,26 +493,90 @@ huebridge> bri Living Room Light 150
 
 ## Advanced Usage
 
-### Custom Scripts
+### Custom Scripts with Non-Interactive Mode
 
-Create shell scripts to automate tasks:
+Create shell scripts using non-interactive commands with the jar:
 
 **turn-on-all.sh:**
 ```bash
 #!/bin/bash
-echo -e "on Living Room Light\non Bedroom Light\non Kitchen Light\nexit" | \
-  ./gradlew :philips:bootRun --args='--spring.profiles.active=cli'
+# Using jar - fast execution!
+JAR="philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar"
+
+java -jar $JAR --spring.profiles.active=cli on "Living Room Light"
+java -jar $JAR --spring.profiles.active=cli on "Bedroom Light"
+java -jar $JAR --spring.profiles.active=cli on "Kitchen Light"
 ```
 
 **morning-routine.sh:**
 ```bash
 #!/bin/bash
-cat << EOF | ./gradlew :philips:bootRun --args='--spring.profiles.active=cli'
+# Morning wake-up sequence
+JAR="philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar"
+echo "Starting morning routine..."
+
+# Gradually wake up
+java -jar $JAR --spring.profiles.active=cli on "Bedroom Light" 50
+sleep 2
+java -jar $JAR --spring.profiles.active=cli breathe "Bedroom Light" 3 3000
+sleep 5
+java -jar $JAR --spring.profiles.active=cli brightness "Bedroom Light" 200
+
+# Turn on other lights
+java -jar $JAR --spring.profiles.active=cli on "Kitchen Light" 200
+java -jar $JAR --spring.profiles.active=cli on "Living Room Light" 150
+
+echo "Morning routine complete!"
+```
+
+**status-check.sh:**
+```bash
+#!/bin/bash
+# Quick status check using jar
+JAR="philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar"
+
+echo "=== Device Status ==="
+java -jar $JAR --spring.profiles.active=cli list
+echo ""
+echo "=== System Status ==="
+java -jar $JAR --spring.profiles.active=cli status
+```
+
+### Interactive Mode Scripts
+
+For multiple commands in sequence, use piped input:
+
+**interactive-routine.sh:**
+```bash
+#!/bin/bash
+JAR="philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar"
+
+cat << EOF | java -jar $JAR --spring.profiles.active=cli
 on Bedroom Light 50
 breathe Bedroom Light 3 3000
 on Kitchen Light 200
 exit
 EOF
+```
+
+### Create an Alias for Easy Access
+
+Add to your `~/.bashrc` or `~/.zshrc`:
+
+```bash
+alias huebridge='java -jar /absolute/path/to/philips/build/libs/huebridge-0.0.1-SNAPSHOT.jar --spring.profiles.active=cli'
+```
+
+Then use it anywhere:
+
+```bash
+# Interactive mode
+huebridge
+
+# Non-interactive mode
+huebridge list
+huebridge on "Living Room Light" 200
+huebridge status
 ```
 
 ### Environment Variables
@@ -450,10 +594,25 @@ MQTT_BROKER_URL=tcp://192.168.1.100:1883 \
 |---------|----------|---------------|
 | Port 8080 | ❌ Not used | ✅ Required |
 | Interactive | ✅ Yes | ❌ No |
+| Non-Interactive | ✅ Yes (cmd args) | N/A |
 | Scripting | ✅ Shell scripts | ✅ HTTP clients |
 | Resource Usage | 🟢 Low | 🟡 Medium |
 | Remote Access | ❌ Local only | ✅ Network accessible |
-| Best For | Manual control, testing | Automation, integration |
+| Best For | Manual control, testing, automation | Remote control, web integration |
+
+## CLI Mode Comparison
+
+| Feature | Interactive Mode | Non-Interactive Mode |
+|---------|------------------|---------------------|
+| Usage | Start shell, type commands | Single command execution |
+| Speed | ⚡ Fast after startup | 🐢 Slower (startup each time) |
+| Scripting | Multiple commands via stdin | One command per invocation |
+| Output | Formatted with banner | Clean, script-friendly |
+| Best For | Manual testing, exploration | Scripts, cron jobs, automation |
+
+**When to use each:**
+- **Interactive Mode:** Testing, manual control, exploring features
+- **Non-Interactive Mode:** Shell scripts, cron jobs, automation, CI/CD pipelines
 
 ## See Also
 
